@@ -6,5 +6,10 @@ use Illuminate\Database\Eloquent\Model;
 
 class Schedule extends Model
 {
-    //
+    protected $guarded = [];
+
+    public function location()
+    {
+        return $this->belongsTo(Location::class);
+    }
 }
