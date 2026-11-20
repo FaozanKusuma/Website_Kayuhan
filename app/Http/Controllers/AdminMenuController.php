@@ -2,57 +2,83 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
-use App\Models\Menu;
 use App\Models\Category;
+use App\Models\Menu;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 
 class AdminMenuController extends Controller
 {
-    // READ: Menampilkan daftar menu ke halaman Admin
     public function index()
     {
-        // Mengambil semua menu beserta nama kategorinya
-        $menus = Menu::with('category')->get();
+        $menus = Menu::with('category')->latest()->get();
         return view('admin.menus.index', compact('menus'));
     }
 
-    // CREATE: Menampilkan form tambah menu (Data kategori dikirim agar bisa dipilih di dropdown)
     public function create()
     {
         $categories = Category::all();
         return view('admin.menus.create', compact('categories'));
     }
 
-    // STORE: Memproses data dari form dan menyimpannya ke Database
     public function store(Request $request)
     {
-        // 1. Validasi Input dari FE (NFR01)
-        $request->validate([
+        $validated = $request->validate([
             'category_id' => 'required|exists:categories,id',
-            'name' => 'required|string|max:255',
-            'price' => 'required|integer|min:0',
+            'name'        => 'required|string|max:255',
+            'price'       => 'required|numeric|min:0',
             'description' => 'nullable|string',
-            'photo' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:2048', // Maks 2MB
+            'image'       => 'required|image|mimes:jpeg,png,jpg,webp|max:2048',
         ]);
 
-        $data = $request->all();
-        $data['is_available'] = $request->has('is_available'); // Checkbox FE
-
-        // 2. Logika Upload Foto
-        if ($request->hasFile('photo')) {
-            $file = $request->file('photo');
-            $filename = time() . '_' . $file->getClientOriginalName();
-            // Simpan foto ke folder public/images
-            $file->move(public_path('images'), $filename);
-            $data['photo'] = $filename;
+        if ($request->hasFile('image')) {
+            $validated['image'] = $request->file('image')->store('menus', 'public');
         }
 
-        // 3. Simpan ke Database MySQL
-        Menu::create($data);
+        Menu::create($validated);
 
-        return redirect()->route('admin.menus.index')->with('success', 'Menu berhasil ditambahkan!');
+        return redirect()->route('admin.menus.index')
+            ->with('success', 'Menu baru berhasil ditambahkan!');
     }
-    
-    // ... (Anda bisa mengosongkan fungsi show, edit, update, destroy untuk saat ini, kita fokus ke Create dulu)
+
+    public function edit(Menu $menu)
+    {
+        $categories = Category::all();
+        return view('admin.menus.edit', compact('menu', 'categories'));
+    }
+
+    public function update(Request $request, Menu $menu)
+    {
+        $validated = $request->validate([
+            'category_id' => 'required|exists:categories,id',
+            'name'        => 'required|string|max:255',
+            'price'       => 'required|numeric|min:0',
+            'description' => 'nullable|string',
+            'image'       => 'nullable|image|mimes:jpeg,png,jpg,webp|max:2048',
+        ]);
+
+        if ($request->hasFile('image')) {
+            if ($menu->image && Storage::disk('public')->exists($menu->image)) {
+                Storage::disk('public')->delete($menu->image);
+            }
+            $validated['image'] = $request->file('image')->store('menus', 'public');
+        }
+
+        $menu->update($validated);
+
+        return redirect()->route('admin.menus.index')
+            ->with('success', 'Data menu berhasil diperbarui!');
+    }
+
+    public function destroy(Menu $menu)
+    {
+        if ($menu->image && Storage::disk('public')->exists($menu->image)) {
+            Storage::disk('public')->delete($menu->image);
+        }
+
+        $menu->delete();
+
+        return redirect()->route('admin.menus.index')
+            ->with('success', 'Menu berhasil dihapus!');
+    }
 }
