@@ -62,10 +62,10 @@
                     class="w-full text-sm text-gray-600 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-[#1b3b2b] file:text-white hover:file:bg-[#132a1e]">
 
                 <div class="mt-3 flex items-center gap-6">
-                    @if ($menu->image)
+                    @if ($menu->image_url)
                         <div>
                             <p class="text-xs text-gray-500 mb-1">Foto Saat Ini:</p>
-                            <img src="{{ asset('storage/' . $menu->image) }}" alt="{{ $menu->name }}" class="w-32 h-32 object-cover rounded-lg border border-gray-200">
+                            <img src="{{ $menu->image_url }}" alt="{{ $menu->name }}" class="w-32 h-32 object-cover rounded-lg border border-gray-200">
                         </div>
                     @endif
                     <div class="hidden" id="preview-container-edit">

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Location;
 use App\Models\Schedule;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Schema;
 
 class AdminLocationController extends Controller
 {
@@ -28,11 +29,21 @@ class AdminLocationController extends Controller
             'name'     => 'required|string|max:255',
             'address'  => 'required|string',
             'maps_url' => 'nullable|string',
+            'whatsapp' => 'nullable|string|max:25',
         ]);
+
+        if (!empty($validated['whatsapp'])) {
+            $cleanWa = preg_replace('/[^0-9]/', '', $validated['whatsapp']);
+            $validated['whatsapp'] = preg_replace('/^0/', '62', $cleanWa);
+        }
+
+        if (!Schema::hasColumn('locations', 'whatsapp')) {
+            unset($validated['whatsapp']);
+        }
 
         Location::create($validated);
 
-        return redirect()->route('admin.locations.index')->with('success', 'Lokasi berhasil ditambahkan!');
+        return redirect()->route('admin.locations.index')->with('success', 'Lokasi & kontak WhatsApp berhasil disimpan!');
     }
 
     public function update(Request $request, Location $location)
@@ -41,11 +52,21 @@ class AdminLocationController extends Controller
             'name'     => 'required|string|max:255',
             'address'  => 'required|string',
             'maps_url' => 'nullable|string',
+            'whatsapp' => 'nullable|string|max:25',
         ]);
+
+        if (!empty($validated['whatsapp'])) {
+            $cleanWa = preg_replace('/[^0-9]/', '', $validated['whatsapp']);
+            $validated['whatsapp'] = preg_replace('/^0/', '62', $cleanWa);
+        }
+
+        if (!Schema::hasColumn('locations', 'whatsapp')) {
+            unset($validated['whatsapp']);
+        }
 
         $location->update($validated);
 
-        return redirect()->route('admin.locations.index')->with('success', 'Data lokasi diperbarui!');
+        return redirect()->route('admin.locations.index')->with('success', 'Data lokasi & WhatsApp berhasil diperbarui!');
     }
 
     public function destroy(Location $location)
