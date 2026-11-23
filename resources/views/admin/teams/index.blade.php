@@ -36,6 +36,9 @@
                 <label class="block text-xs font-semibold uppercase text-gray-600 mb-1">Foto Profil</label>
                 <input type="file" name="photo" accept="image/*"
                     class="w-full text-xs text-gray-600 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-[#1b3b2b] file:text-white">
+                @if(isset($team) && $team->photo_url)
+                    <img src="{{ $team->photo_url }}" alt="{{ $team->name }}" class="w-16 h-16 rounded-full object-cover border mt-3">
+                @endif
             </div>
 
             <div class="flex gap-2 pt-2">
@@ -68,8 +71,8 @@
                     @forelse ($teams as $member)
                         <tr>
                             <td class="py-3 px-5">
-                                @if ($member->photo)
-                                    <img src="{{ asset('storage/' . $member->photo) }}" class="w-11 h-11 rounded-full object-cover border">
+                                @if ($member->photo_url)
+                                    <img src="{{ $member->photo_url }}" alt="{{ $member->name }}" class="w-11 h-11 rounded-full object-cover border">
                                 @else
                                     <div class="w-11 h-11 rounded-full bg-emerald-50 text-[#1b3b2b] flex items-center justify-center font-bold text-xs">
                                         {{ substr($member->name, 0, 2) }}
@@ -81,7 +84,8 @@
                             <td class="py-3 px-5 text-right space-x-2">
                                 <a href="{{ route('admin.teams.edit', $member->id) }}" class="bg-amber-400 text-[#1b3b2b] px-3 py-1 rounded text-xs font-semibold">Edit</a>
                                 <form action="{{ route('admin.teams.destroy', $member->id) }}" method="POST" class="inline" onsubmit="return confirm('Hapus anggota tim ini?')">
-                                    @csrf @method('DELETE')
+                                    @csrf
+                                    @method('DELETE')
                                     <button type="submit" class="bg-red-600 text-white px-3 py-1 rounded text-xs font-semibold">Hapus</button>
                                 </form>
                             </td>

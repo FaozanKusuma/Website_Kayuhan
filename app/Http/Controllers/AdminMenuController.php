@@ -32,7 +32,10 @@ class AdminMenuController extends Controller
         ]);
 
         if ($request->hasFile('image')) {
-            $validated['image'] = $request->file('image')->store('menus', 'public');
+            $file = $request->file('image');
+            $filename = time() . '_' . preg_replace('/\s+/', '_', $file->getClientOriginalName());
+            $file->move(public_path('images/foto_menu'), $filename);
+            $validated['image'] = 'images/foto_menu/' . $filename;
         }
 
         Menu::create($validated);
@@ -58,10 +61,12 @@ class AdminMenuController extends Controller
         ]);
 
         if ($request->hasFile('image')) {
-            if ($menu->image && Storage::disk('public')->exists($menu->image)) {
-                Storage::disk('public')->delete($menu->image);
-            }
-            $validated['image'] = $request->file('image')->store('menus', 'public');
+            $this->deleteOldImage($menu->image);
+
+            $file = $request->file('image');
+            $filename = time() . '_' . preg_replace('/\s+/', '_', $file->getClientOriginalName());
+            $file->move(public_path('images/foto_menu'), $filename);
+            $validated['image'] = 'images/foto_menu/' . $filename;
         }
 
         $menu->update($validated);
@@ -72,13 +77,22 @@ class AdminMenuController extends Controller
 
     public function destroy(Menu $menu)
     {
-        if ($menu->image && Storage::disk('public')->exists($menu->image)) {
-            Storage::disk('public')->delete($menu->image);
-        }
-
+        $this->deleteOldImage($menu->image);
         $menu->delete();
 
         return redirect()->route('admin.menus.index')
             ->with('success', 'Menu berhasil dihapus!');
+    }
+
+    private function deleteOldImage(?string $path): void
+    {
+        if (!$path) return;
+
+        $fullPath = public_path($path);
+        if (file_exists($fullPath) && is_file($fullPath)) {
+            @unlink($fullPath);
+        } elseif (Storage::disk('public')->exists($path)) {
+            Storage::disk('public')->delete($path);
+        }
     }
 }

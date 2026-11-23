@@ -22,14 +22,17 @@ class AdminTeamController extends Controller
 
     public function store(Request $request)
     {
-        $validated =$request->validate([
+        $validated = $request->validate([
             'name'  => 'required|string|max:255',
             'role'  => 'required|string|max:255',
             'photo' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:2048',
         ]);
 
         if ($request->hasFile('photo')) {
-            $validated['photo'] =$request->file('photo')->store('teams', 'public');
+            $file = $request->file('photo');
+            $filename = time() . '_' . preg_replace('/\s+/', '_', $file->getClientOriginalName());
+            $file->move(public_path('images/foto_karyawan'), $filename);
+            $validated['photo'] = 'images/foto_karyawan/' . $filename;
         }
 
         TeamMember::create($validated);
@@ -37,19 +40,25 @@ class AdminTeamController extends Controller
         return redirect()->route('admin.teams.index')->with('success', 'Anggota tim berhasil ditambahkan!');
     }
 
-    public function update(Request $request, TeamMember$team)
+    public function update(Request $request, TeamMember $team)
     {
-        $validated =$request->validate([
+        $validated = $request->validate([
             'name'  => 'required|string|max:255',
             'role'  => 'required|string|max:255',
             'photo' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:2048',
         ]);
 
         if ($request->hasFile('photo')) {
-            if ($team->photo && Storage::disk('public')->exists($team->photo)) {
+            if ($team->photo && file_exists(public_path($team->photo))) {
+                @unlink(public_path($team->photo));
+            } elseif ($team->photo && Storage::disk('public')->exists($team->photo)) {
                 Storage::disk('public')->delete($team->photo);
             }
-            $validated['photo'] =$request->file('photo')->store('teams', 'public');
+
+            $file = $request->file('photo');
+            $filename = time() . '_' . preg_replace('/\s+/', '_', $file->getClientOriginalName());
+            $file->move(public_path('images/foto_karyawan'), $filename);
+            $validated['photo'] = 'images/foto_karyawan/' . $filename;
         }
 
         $team->update($validated);
@@ -59,9 +68,12 @@ class AdminTeamController extends Controller
 
     public function destroy(TeamMember $team)
     {
-        if ($team->photo && Storage::disk('public')->exists($team->photo)) {
+        if ($team->photo && file_exists(public_path($team->photo))) {
+            @unlink(public_path($team->photo));
+        } elseif ($team->photo && Storage::disk('public')->exists($team->photo)) {
             Storage::disk('public')->delete($team->photo);
         }
+
         $team->delete();
 
         return redirect()->route('admin.teams.index')->with('success', 'Anggota tim berhasil dihapus!');

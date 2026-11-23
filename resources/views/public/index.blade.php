@@ -4,12 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Kayuhan Street Coffee — Grind The Everyday Essentials</title>
-    
-    <!-- Google Fonts: Plus Jakarta Sans (Karakteristik Tipografi Modern ala Fore Coffee) -->
+
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    
+
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -35,14 +34,46 @@
 </head>
 <body class="bg-white text-slate-800 font-sans antialiased selection:bg-brand-600 selection:text-white">
 
+    @php
+        use Illuminate\Support\Str;
+
+        // Ambil lokasi utama dari database untuk kontak WhatsApp & Google Maps
+        $primaryLocation = (isset($locations) && $locations->count()) ? $locations->first() : null;
+
+        // Normalisasi nomor WhatsApp (08... -> 628...)
+        $rawWa = ($primaryLocation && !empty($primaryLocation->whatsapp))
+            ? $primaryLocation->whatsapp
+            : '6287724390512';
+        $waNumber = preg_replace('/^0/', '62', preg_replace('/[^0-9]/', '', $rawWa));
+
+        $waPackageUrl = 'https://wa.me/' . $waNumber . '?text=' . urlencode('Halo Kayuhan Street Coffee, saya tertarik untuk konsultasi paket acara / kemitraan.');
+        $waGeneralUrl = 'https://wa.me/' . $waNumber . '?text=' . urlencode('Halo Kayuhan Street Coffee, saya ingin bertanya mengenai menu dan lokasi kedai hari ini.');
+
+        // Penyiapan URL Google Maps (Embed Iframe & Tombol Buka Maps)
+        $locationQuery = ($primaryLocation->name ?? 'Kayuhan Street Coffee') . ' ' . ($primaryLocation->address ?? 'Kediri');
+        $embedMapUrl   = 'https://maps.google.com/maps?q=' . urlencode($locationQuery) . '&t=&z=15&ie=UTF8&iwloc=&output=embed';
+        $directMapUrl  = 'https://www.google.com/maps/search/?api=1&query=' . urlencode($locationQuery);
+
+        $rawMap = $primaryLocation->maps_url ?? '';
+        if (!empty($rawMap)) {
+            if (preg_match('/src="([^"]+)"/', $rawMap, $matches)) {
+                $embedMapUrl  = $matches[1];
+                $directMapUrl = $matches[1];
+            } elseif (str_contains($rawMap, '/maps/embed') || str_contains($rawMap, 'output=embed')) {
+                $embedMapUrl  = $rawMap;
+                $directMapUrl = $rawMap;
+            } elseif (str_starts_with($rawMap, 'http')) {
+                $directMapUrl = $rawMap;
+            }
+        }
+    @endphp
+
     <!-- Navbar Minimalis & Glassmorphism -->
     <header class="bg-white/90 backdrop-blur-md border-b border-slate-100 sticky top-0 z-50">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
             <!-- Brand Logo -->
-            <a href="#" class="flex items-center gap-2.5 group">
-                <div class="w-9 h-9 rounded-full bg-brand-600 flex items-center justify-center text-white font-extrabold text-sm tracking-tighter group-hover:bg-brand-800 transition">
-                    KS
-                </div>
+            <a href="#" class="flex items-center gap-3 group">
+                <img src="{{ asset('images/foto_menu/kayuhan.png') }}" alt="Logo Kayuhan" class="w-10 h-10 rounded-full object-cover border border-brand-100">
                 <span class="font-extrabold text-lg tracking-tight text-brand-800">
                     KAYUHAN<span class="font-medium text-brand-600">.COFFEE</span>
                 </span>
@@ -51,16 +82,23 @@
             <!-- Navigasi Desktop -->
             <nav class="hidden md:flex items-center space-x-8 text-sm font-medium text-slate-600">
                 <a href="#menu" class="hover:text-brand-600 transition py-1">Menu</a>
+                <a href="#package" class="hover:text-brand-600 transition py-1">Package</a>
                 <a href="#team" class="hover:text-brand-600 transition py-1">Our Team</a>
                 <a href="#location" class="hover:text-brand-600 transition py-1">Location</a>
-                <a href="#package" class="hover:text-brand-600 transition py-1">Package</a>
             </nav>
 
             <!-- CTA Login Staf & Mobile Toggle -->
             <div class="flex items-center gap-3">
-                <a href="{{ route('login') }}" class="bg-brand-600 hover:bg-brand-700 text-white px-5 py-2.5 rounded-full text-sm font-semibold shadow-sm hover:shadow transition">
-                    Login Staf
-                </a>
+                @auth
+                    <a href="{{ route('admin.dashboard') }}" class="bg-brand-600 hover:bg-brand-700 text-white px-5 py-2.5 rounded-full text-sm font-semibold shadow-sm hover:shadow transition">
+                        Panel Admin
+                    </a>
+                @else
+                    <a href="{{ route('login') }}" class="bg-brand-600 hover:bg-brand-700 text-white px-5 py-2.5 rounded-full text-sm font-semibold shadow-sm hover:shadow transition">
+                        Login Staf
+                    </a>
+                @endauth
+
                 <button id="mobile-menu-btn" type="button" class="md:hidden p-2 rounded-full text-slate-600 hover:bg-slate-100 focus:outline-none" aria-label="Buka Menu">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
@@ -72,9 +110,9 @@
         <!-- Navigasi Mobile -->
         <div id="mobile-menu" class="hidden md:hidden bg-white border-b border-slate-100 px-4 pt-2 pb-5 space-y-2">
             <a href="#menu" class="block px-3 py-2 rounded-xl text-sm font-medium text-slate-700 hover:bg-brand-50 hover:text-brand-600">Menu</a>
+            <a href="#package" class="block px-3 py-2 rounded-xl text-sm font-medium text-slate-700 hover:bg-brand-50 hover:text-brand-600">Package</a>
             <a href="#team" class="block px-3 py-2 rounded-xl text-sm font-medium text-slate-700 hover:bg-brand-50 hover:text-brand-600">Our Team</a>
             <a href="#location" class="block px-3 py-2 rounded-xl text-sm font-medium text-slate-700 hover:bg-brand-50 hover:text-brand-600">Location</a>
-            <a href="#package" class="block px-3 py-2 rounded-xl text-sm font-medium text-slate-700 hover:bg-brand-50 hover:text-brand-600">Package</a>
         </div>
     </header>
 
@@ -109,18 +147,15 @@
                 </div>
             </div>
 
-            <!-- Wadah Visual Produk Unggulan Kanan -->
+            <!-- Foto Produk Unggulan Kanan -->
             <div class="lg:col-span-6">
                 <div class="relative mx-auto max-w-lg lg:max-w-none">
-                    <div class="aspect-[4/3] bg-brand-50 border border-brand-100 rounded-3xl overflow-hidden shadow-xl shadow-brand-900/5 flex flex-col items-center justify-center p-8 text-center relative">
-                        <!-- Ganti blok ini dengan tag <img> foto produk unggulan Anda -->
-                        <div class="w-20 h-20 rounded-2xl bg-white shadow-sm flex items-center justify-center text-brand-600 mb-4">
-                            <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M18 8h1a4 4 0 010 8h-1M2 8h16v9a4 4 0 01-4 4H6a4 4 0 01-4-4V8zM6 1v3M10 1v3M14 1v3"/>
-                            </svg>
-                        </div>
-                        <span class="text-brand-800 font-bold text-base">Foto Produk Unggulan</span>
-                        <span class="text-slate-500 text-xs mt-1">Rekomendasi rasio foto 4:3 atau 1:1 (PNG/WebP transparan atau estetik)</span>
+                    <div class="aspect-[4/3] bg-brand-50 border border-brand-100 rounded-3xl overflow-hidden shadow-xl shadow-brand-900/5 relative">
+                        @if(isset($menus) && $menus->first() && $menus->first()->image_url)
+                            <img src="{{ $menus->first()->image_url }}" alt="{{ $menus->first()->name }}" class="w-full h-full object-cover">
+                        @else
+                            <img src="{{ asset('images/foto_menu/kayuhan_signature.jpeg') }}" alt="Kayuhan Signature Coffee" class="w-full h-full object-cover">
+                        @endif
 
                         <!-- Floating Badge -->
                         <div class="absolute bottom-5 left-5 right-5 sm:right-auto bg-white/95 backdrop-blur px-4 py-3 rounded-2xl shadow-md border border-slate-100 flex items-center gap-3 text-left">
@@ -128,7 +163,9 @@
                                 100%
                             </div>
                             <div>
-                                <p class="text-xs font-bold text-slate-900">Arabica & House Blend</p>
+                                <p class="text-xs font-bold text-slate-900">
+                                    {{ (isset($menus) && $menus->first()) ? $menus->first()->name : 'Kayuhan Signature Blend' }}
+                                </p>
                                 <p class="text-[11px] text-slate-500">Diseduh segar setiap pesanan</p>
                             </div>
                         </div>
@@ -146,14 +183,14 @@
                 <h2 class="text-3xl md:text-4xl font-extrabold text-brand-900 tracking-tight mt-1">Our Menu</h2>
             </div>
 
-            <!-- Filter Kategori Bentuk Pill -->
+            <!-- Filter Kategori -->
             <div class="flex flex-wrap gap-2.5" id="menu-filters">
                 <button type="button" data-filter="all" class="filter-btn active bg-brand-600 text-white px-5 py-2.5 rounded-full font-semibold text-sm transition">
                     Semua Menu
                 </button>
                 @if(isset($categories) && $categories->count())
                     @foreach($categories as $category)
-                        <button type="button" data-filter="{{ strtolower($category->name) }}" class="filter-btn bg-slate-100 hover:bg-brand-50 text-slate-700 hover:text-brand-700 px-5 py-2.5 rounded-full font-semibold text-sm transition">
+                        <button type="button" data-filter="{{ Str::slug($category->name) }}" class="filter-btn bg-slate-100 hover:bg-brand-50 text-slate-700 hover:text-brand-700 px-5 py-2.5 rounded-full font-semibold text-sm transition">
                             {{ $category->name }}
                         </button>
                     @endforeach
@@ -172,13 +209,13 @@
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-7" id="menu-grid">
             @if(isset($menus) && $menus->count())
                 @foreach($menus as $menu)
-                    <div data-category="{{ strtolower($menu->category->name ?? 'coffee') }}" class="menu-card group bg-white rounded-3xl border border-slate-100 p-4 shadow-sm hover:shadow-xl hover:shadow-slate-200/60 hover:-translate-y-1 transition-all duration-300 flex flex-col justify-between">
+                    <div data-category="{{ Str::slug($menu->category->name ?? 'coffee') }}" class="menu-card group bg-white rounded-3xl border border-slate-100 p-4 shadow-sm hover:shadow-xl hover:shadow-slate-200/60 hover:-translate-y-1 transition-all duration-300 flex flex-col justify-between">
                         <div>
                             <div class="aspect-square bg-brand-50/60 rounded-2xl overflow-hidden mb-4 relative flex items-center justify-center">
-                                @if(!empty($menu->image))
-                                    <img src="{{ asset('storage/' . $menu->image) }}" alt="{{ $menu->name }}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
+                                @if($menu->image_url)
+                                    <img src="{{ $menu->image_url }}" alt="{{ $menu->name }}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
                                 @else
-                                    <span class="text-brand-700/60 text-xs font-medium">[Foto {{ $menu->name }}]</span>
+                                    <img src="{{ asset('images/foto_menu/kayuhan.png') }}" alt="{{ $menu->name }}" class="w-24 h-24 object-contain opacity-60">
                                 @endif
                                 <span class="absolute top-3 left-3 bg-white/90 backdrop-blur px-3 py-1 rounded-full text-[11px] font-semibold text-brand-700">
                                     {{ $menu->category->name ?? 'Signature' }}
@@ -189,64 +226,47 @@
                         </div>
                         <div class="pt-4 mt-4 border-t border-slate-100 flex items-center justify-between">
                             <span class="text-brand-700 font-extrabold text-lg">Rp {{ number_format($menu->price, 0, ',', '.') }}</span>
-                            <span class="text-xs font-medium text-slate-400">Tersedia</span>
+                            <span class="text-xs font-medium text-slate-400">Ice / Hot</span>
                         </div>
                     </div>
                 @endforeach
             @else
-                <!-- Fallback Data Statis Sesuai File Awal -->
-                <div data-category="coffee" class="menu-card group bg-white rounded-3xl border border-slate-100 p-4 shadow-sm hover:shadow-xl hover:shadow-slate-200/60 hover:-translate-y-1 transition-all duration-300 flex flex-col justify-between">
-                    <div>
-                        <div class="aspect-square bg-brand-50/60 rounded-2xl overflow-hidden mb-4 relative flex items-center justify-center">
-                            <span class="text-brand-700/60 text-xs font-medium">[Foto Kopi Susu Signature]</span>
-                            <span class="absolute top-3 left-3 bg-white/90 backdrop-blur px-3 py-1 rounded-full text-[11px] font-semibold text-brand-700">Coffee</span>
-                        </div>
-                        <h3 class="font-bold text-slate-900 text-lg group-hover:text-brand-600 transition">Kopi Susu Signature</h3>
-                        <p class="text-slate-500 text-sm mt-1">Perpaduan espresso house blend, susu segar creamy, dan gula aren pilihan.</p>
-                    </div>
-                    <div class="pt-4 mt-4 border-t border-slate-100 flex items-center justify-between">
-                        <span class="text-brand-700 font-extrabold text-lg">Rp 18.000</span>
-                        <span class="text-xs font-semibold text-brand-600 bg-brand-50 px-2.5 py-1 rounded-full">Best Seller</span>
-                    </div>
-                </div>
+                <!-- Fallback Katalog dari public/images/foto_menu/ -->
+                @php
+                    $defaultMenus = [
+                        ['name' => 'Kayuhan Signature', 'cat' => 'coffee', 'label' => 'Coffee', 'price' => 18000, 'img' => 'kayuhan_signature.jpeg', 'desc' => 'Racikan kopi susu andalan Kayuhan dengan tekstur creamy dan aroma khas.'],
+                        ['name' => 'Kopi Susu Gula Aren', 'cat' => 'coffee', 'label' => 'Coffee', 'price' => 17000, 'img' => 'kopi_susu_gula_aren.jpeg', 'desc' => 'Perpaduan espresso house blend, susu segar, dan manis legit gula aren asli.'],
+                        ['name' => 'Americano', 'cat' => 'coffee', 'label' => 'Coffee', 'price' => 14000, 'img' => 'americano.jpeg', 'desc' => 'Ekstraksi biji kopi pilihan dengan karakter bersih dan menyegarkan.'],
+                        ['name' => 'Pandan Latte', 'cat' => 'coffee', 'label' => 'Coffee', 'price' => 18000, 'img' => 'pandan_latte.jpeg', 'desc' => 'Kopi susu lembut dengan sentuhan aroma pandan harum yang menenangkan.'],
+                        ['name' => 'Matcha Latte', 'cat' => 'non-coffee', 'label' => 'Non-Coffee', 'price' => 18000, 'img' => 'matcha_latte.jpeg', 'desc' => 'Bubuk matcha autentik dengan susu segar yang lembut dan seimbang.'],
+                        ['name' => 'Chocolate Caramel', 'cat' => 'non-coffee', 'label' => 'Non-Coffee', 'price' => 19000, 'img' => 'chocolate_caramel.jpeg', 'desc' => 'Cokelat pekat berpadu saus karamel manis dan susu segar pilihan.'],
+                    ];
+                @endphp
 
-                <div data-category="coffee" class="menu-card group bg-white rounded-3xl border border-slate-100 p-4 shadow-sm hover:shadow-xl hover:shadow-slate-200/60 hover:-translate-y-1 transition-all duration-300 flex flex-col justify-between">
-                    <div>
-                        <div class="aspect-square bg-brand-50/60 rounded-2xl overflow-hidden mb-4 relative flex items-center justify-center">
-                            <span class="text-brand-700/60 text-xs font-medium">[Foto Americano Classic]</span>
-                            <span class="absolute top-3 left-3 bg-white/90 backdrop-blur px-3 py-1 rounded-full text-[11px] font-semibold text-brand-700">Coffee</span>
+                @foreach($defaultMenus as $item)
+                    <div data-category="{{ $item['cat'] }}" class="menu-card group bg-white rounded-3xl border border-slate-100 p-4 shadow-sm hover:shadow-xl hover:shadow-slate-200/60 hover:-translate-y-1 transition-all duration-300 flex flex-col justify-between">
+                        <div>
+                            <div class="aspect-square bg-brand-50/60 rounded-2xl overflow-hidden mb-4 relative flex items-center justify-center">
+                                <img src="{{ asset('images/foto_menu/' . $item['img']) }}" alt="{{ $item['name'] }}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
+                                <span class="absolute top-3 left-3 bg-white/90 backdrop-blur px-3 py-1 rounded-full text-[11px] font-semibold text-brand-700">{{ $item['label'] }}</span>
+                            </div>
+                            <h3 class="font-bold text-slate-900 text-lg group-hover:text-brand-600 transition">{{ $item['name'] }}</h3>
+                            <p class="text-slate-500 text-sm mt-1">{{ $item['desc'] }}</p>
                         </div>
-                        <h3 class="font-bold text-slate-900 text-lg group-hover:text-brand-600 transition">Americano Classic</h3>
-                        <p class="text-slate-500 text-sm mt-1">Ekstraksi ganda biji kopi pilihan dengan karakter bersih dan menyegarkan.</p>
-                    </div>
-                    <div class="pt-4 mt-4 border-t border-slate-100 flex items-center justify-between">
-                        <span class="text-brand-700 font-extrabold text-lg">Rp 15.000</span>
-                        <span class="text-xs font-medium text-slate-400">Ice / Hot</span>
-                    </div>
-                </div>
-
-                <div data-category="non-coffee" class="menu-card group bg-white rounded-3xl border border-slate-100 p-4 shadow-sm hover:shadow-xl hover:shadow-slate-200/60 hover:-translate-y-1 transition-all duration-300 flex flex-col justify-between">
-                    <div>
-                        <div class="aspect-square bg-brand-50/60 rounded-2xl overflow-hidden mb-4 relative flex items-center justify-center">
-                            <span class="text-brand-700/60 text-xs font-medium">[Foto Matcha Latte]</span>
-                            <span class="absolute top-3 left-3 bg-white/90 backdrop-blur px-3 py-1 rounded-full text-[11px] font-semibold text-brand-700">Non-Coffee</span>
+                        <div class="pt-4 mt-4 border-t border-slate-100 flex items-center justify-between">
+                            <span class="text-brand-700 font-extrabold text-lg">Rp {{ number_format($item['price'], 0, ',', '.') }}</span>
+                            <span class="text-xs font-medium text-slate-400">Ice / Hot</span>
                         </div>
-                        <h3 class="font-bold text-slate-900 text-lg group-hover:text-brand-600 transition">Matcha Latte</h3>
-                        <p class="text-slate-500 text-sm mt-1">Bubuk matcha autentik dengan susu segar yang lembut dan tidak terlalu manis.</p>
                     </div>
-                    <div class="pt-4 mt-4 border-t border-slate-100 flex items-center justify-between">
-                        <span class="text-brand-700 font-extrabold text-lg">Rp 20.000</span>
-                        <span class="text-xs font-medium text-slate-400">Ice / Hot</span>
-                    </div>
-                </div>
+                @endforeach
             @endif
         </div>
     </section>
 
-    <!-- Package Layanan (Full-Width Highlight Banner ala Fore Coffee) -->
+    <!-- Package Layanan -->
     <section id="package" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         <div class="bg-brand-800 rounded-3xl p-8 md:p-12 lg:p-14 text-white relative overflow-hidden">
-            <div class="relative z-10 max-w-2xl space-y-4">
+            <div class="relative z-10 max-w-3xl space-y-5">
                 <span class="inline-block px-3.5 py-1 rounded-full bg-white/10 text-brand-100 text-xs font-semibold tracking-wider uppercase">
                     Event & Kemitraan
                 </span>
@@ -256,8 +276,37 @@
                 <p class="text-brand-100/90 text-sm sm:text-base leading-relaxed">
                     Tersedia paket layanan kopi untuk acara kampus, komunitas, pernikahan, hingga peluang kemitraan strategis dengan dukungan penuh tim barista kami.
                 </p>
+
+                <!-- Daftar Paket Dinamis dari Admin -->
+                @if(isset($packages) && $packages->count())
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+                        @foreach($packages as $pkg)
+                            <div class="bg-white/10 backdrop-blur-sm border border-white/15 rounded-2xl p-5 flex flex-col justify-between">
+                                <div>
+                                    <div class="flex items-start justify-between gap-2">
+                                        <h3 class="font-bold text-white text-base">{{ $pkg->name }}</h3>
+                                        <span class="text-xs font-extrabold bg-amber-400 text-brand-900 px-3 py-1 rounded-full shrink-0">
+                                            Rp {{ number_format($pkg->price, 0, ',', '.') }}
+                                        </span>
+                                    </div>
+                                    @if($pkg->description)
+                                        <p class="text-xs text-brand-100/85 mt-2 leading-relaxed">{{ $pkg->description }}</p>
+                                    @endif
+                                </div>
+                                <div class="mt-4 pt-3 border-t border-white/10">
+                                    <a href="{{ 'https://wa.me/' . $waNumber . '?text=' . urlencode('Halo Kayuhan Street Coffee, saya ingin memesan ' . $pkg->name . '.') }}"
+                                       target="_blank" rel="noopener noreferrer"
+                                       class="text-xs font-semibold text-amber-300 hover:text-amber-200 inline-flex items-center gap-1">
+                                        Pesan Paket Ini &rarr;
+                                    </a>
+                                </div>
+                            </div>
+                        @endforeach
+                    </div>
+                @endif
+
                 <div class="pt-2">
-                    <a href="https://wa.me/" target="_blank" class="inline-flex items-center gap-2.5 bg-white text-brand-800 hover:bg-brand-50 font-bold px-6 py-3.5 rounded-full text-sm shadow-lg transition">
+                    <a href="{{ $waPackageUrl }}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-2.5 bg-white text-brand-800 hover:bg-brand-50 font-bold px-6 py-3.5 rounded-full text-sm shadow-lg transition">
                         <span>Konsultasi Paket via WhatsApp</span>
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/>
@@ -265,7 +314,6 @@
                     </a>
                 </div>
             </div>
-            <!-- Ornamen Lingkaran Halus -->
             <div class="hidden md:block absolute -right-16 -bottom-24 w-80 h-80 rounded-full bg-brand-600/30 pointer-events-none"></div>
             <div class="hidden md:block absolute right-24 -top-20 w-56 h-56 rounded-full bg-brand-600/20 pointer-events-none"></div>
         </div>
@@ -284,10 +332,10 @@
                 @foreach($teams as $member)
                     <div class="bg-white border border-slate-100 p-6 rounded-3xl text-center shadow-sm hover:shadow-md transition">
                         <div class="w-24 h-24 rounded-full bg-brand-50 ring-4 ring-brand-50/70 mx-auto overflow-hidden flex items-center justify-center mb-4">
-                            @if(!empty($member->photo))
-                                <img src="{{ asset('storage/' . $member->photo) }}" alt="{{ $member->name }}" class="w-full h-full object-cover">
+                            @if($member->photo_url)
+                                <img src="{{ $member->photo_url }}" alt="{{ $member->name }}" class="w-full h-full object-cover">
                             @else
-                                <span class="text-brand-700 font-bold text-sm">Foto</span>
+                                <img src="{{ asset('images/foto_karyawan/owner.jpeg') }}" alt="{{ $member->name }}" class="w-full h-full object-cover">
                             @endif
                         </div>
                         <h4 class="font-bold text-slate-900 text-base">{{ $member->name }}</h4>
@@ -296,14 +344,11 @@
                 @endforeach
             @else
                 <div class="bg-white border border-slate-100 p-6 rounded-3xl text-center shadow-sm hover:shadow-md transition">
-                    <div class="w-24 h-24 bg-brand-50 ring-4 ring-brand-50/70 rounded-full mx-auto flex items-center justify-center text-brand-700 font-semibold text-xs mb-4">Foto</div>
-                    <h4 class="font-bold text-slate-900 text-base">Barista 1</h4>
-                    <p class="text-xs font-medium text-brand-600 mt-1">Head Barista</p>
-                </div>
-                <div class="bg-white border border-slate-100 p-6 rounded-3xl text-center shadow-sm hover:shadow-md transition">
-                    <div class="w-24 h-24 bg-brand-50 ring-4 ring-brand-50/70 rounded-full mx-auto flex items-center justify-center text-brand-700 font-semibold text-xs mb-4">Foto</div>
-                    <h4 class="font-bold text-slate-900 text-base">Barista 2</h4>
-                    <p class="text-xs font-medium text-brand-600 mt-1">Assistant Barista</p>
+                    <div class="w-24 h-24 bg-brand-50 ring-4 ring-brand-50/70 rounded-full mx-auto overflow-hidden mb-4">
+                        <img src="{{ asset('images/foto_karyawan/owner.jpeg') }}" alt="Owner & Head Barista" class="w-full h-full object-cover">
+                    </div>
+                    <h4 class="font-bold text-slate-900 text-base">Owner Kayuhan</h4>
+                    <p class="text-xs font-medium text-brand-600 mt-1">Founder & Head Barista</p>
                 </div>
             @endif
         </div>
@@ -313,66 +358,109 @@
     <section id="location" class="bg-slate-50/80 border-t border-slate-100 py-16 md:py-24">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch">
-                <!-- Info Jadwal -->
+                <!-- Kolom Info Lokasi, Jadwal & Tombol Aksi -->
                 <div class="lg:col-span-5 bg-white p-8 rounded-3xl border border-slate-100 shadow-sm flex flex-col justify-between space-y-6">
-                    <div class="space-y-3">
-                        <span class="text-xs font-bold uppercase tracking-widest text-brand-600">Find Us</span>
-                        <h3 class="text-2xl md:text-3xl font-extrabold text-brand-900 tracking-tight">Lokasi & Jadwal</h3>
-                        <p class="text-sm text-slate-600 leading-relaxed">
-                            Temukan titik mangkal reguler dan jadwal akhir pekan Kayuhan Street Coffee untuk menikmati kopi langsung di tempat.
-                        </p>
+                    <div class="space-y-4">
+                        <div>
+                            <span class="text-xs font-bold uppercase tracking-widest text-brand-600">Find Us</span>
+                            <h3 class="text-2xl md:text-3xl font-extrabold text-brand-900 tracking-tight mt-1">Lokasi & Jadwal</h3>
+                        </div>
+
+                        <!-- Alamat dari Admin -->
+                        @if(isset($locations) && $locations->count())
+                            <div class="space-y-2.5">
+                                @foreach($locations as $loc)
+                                    <div class="p-4 rounded-2xl bg-slate-50 border border-slate-200/70">
+                                        <p class="font-bold text-sm text-brand-900">{{ $loc->name }}</p>
+                                        <p class="text-xs text-slate-600 mt-1 leading-relaxed">{{ $loc->address }}</p>
+                                    </div>
+                                @endforeach
+                            </div>
+                        @else
+                            <div class="p-4 rounded-2xl bg-slate-50 border border-slate-200/70">
+                                <p class="font-bold text-sm text-brand-900">Kayuhan Street Coffee — Kediri</p>
+                                <p class="text-xs text-slate-600 mt-1 leading-relaxed">Kota Kediri, Jawa Timur (Atur alamat lengkap melalui Panel Admin).</p>
+                            </div>
+                        @endif
+
+                        <!-- Jadwal Operasional -->
+                        <div class="space-y-2.5">
+                            @if(isset($schedules) && $schedules->count())
+                                @foreach($schedules as $sch)
+                                    <div class="p-4 rounded-2xl bg-brand-50/70 border border-brand-100">
+                                        <p class="text-xs font-bold uppercase tracking-wider text-brand-700">{{ $sch->day }}</p>
+                                        <p class="text-sm font-semibold text-slate-800 mt-1">{{ $sch->hours }}</p>
+                                    </div>
+                                @endforeach
+                            @else
+                                <div class="p-4 rounded-2xl bg-brand-50/70 border border-brand-100">
+                                    <p class="text-xs font-bold uppercase tracking-wider text-brand-700">Jadwal Reguler (Senin – Jumat)</p>
+                                    <p class="text-sm font-semibold text-slate-800 mt-1">15.00 – 22.00 WIB</p>
+                                </div>
+                                <div class="p-4 rounded-2xl bg-slate-50 border border-slate-100">
+                                    <p class="text-xs font-bold uppercase tracking-wider text-slate-600">Akhir Pekan (Sabtu – Minggu)</p>
+                                    <p class="text-sm font-semibold text-slate-800 mt-1">07.00 – 23.00 WIB</p>
+                                </div>
+                            @endif
+                        </div>
                     </div>
 
-                    <div class="space-y-3">
-                        <div class="p-4 rounded-2xl bg-brand-50/70 border border-brand-100">
-                            <p class="text-xs font-bold uppercase tracking-wider text-brand-700">Jadwal Reguler (Senin – Jumat)</p>
-                            <p class="text-sm font-semibold text-slate-800 mt-1">15.00 – 22.00 WIB</p>
-                        </div>
-                        <div class="p-4 rounded-2xl bg-slate-50 border border-slate-100">
-                            <p class="text-xs font-bold uppercase tracking-wider text-slate-600">Akhir Pekan (Sabtu – Minggu)</p>
-                            <p class="text-sm font-semibold text-slate-800 mt-1">07.00 – 23.00 WIB</p>
-                        </div>
+                    <!-- Tombol Peta & WhatsApp -->
+                    <div class="flex flex-col sm:flex-row gap-3 pt-2">
+                        <a href="{{ $directMapUrl }}" target="_blank" rel="noopener noreferrer"
+                           class="flex-1 text-center bg-brand-600 hover:bg-brand-700 text-white font-semibold px-4 py-3 rounded-full text-xs sm:text-sm transition">
+                            Buka Google Maps
+                        </a>
+                        <a href="{{ $waGeneralUrl }}" target="_blank" rel="noopener noreferrer"
+                           class="flex-1 text-center bg-emerald-50 hover:bg-emerald-100 text-brand-800 border border-brand-200 font-semibold px-4 py-3 rounded-full text-xs sm:text-sm transition">
+                            Chat WhatsApp
+                        </a>
                     </div>
                 </div>
 
-                <!-- Embed Peta -->
-                <div class="lg:col-span-7 bg-white p-4 rounded-3xl border border-slate-100 shadow-sm flex flex-col">
-                    <div class="w-full h-72 lg:h-full min-h-[300px] bg-slate-100 rounded-2xl overflow-hidden flex items-center justify-center text-slate-500 text-sm font-medium">
-                        [Embed Peta Lokasi Google Maps]
-                    </div>
+                <!-- Kolom Embed Peta Google Maps -->
+                <div class="lg:col-span-7 bg-white p-3 rounded-3xl border border-slate-100 shadow-sm flex flex-col">
+                    <iframe
+                        src="{{ $embedMapUrl }}"
+                        class="w-full h-80 lg:h-full min-h-[340px] rounded-2xl border-0"
+                        loading="lazy"
+                        referrerpolicy="no-referrer-when-downgrade"
+                        allowfullscreen>
+                    </iframe>
                 </div>
             </div>
         </div>
     </section>
 
-    <!-- Footer Minimalis -->
+    <!-- Footer -->
     <footer class="bg-brand-900 text-white py-12">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row items-center justify-between gap-6">
-            <div class="text-center md:text-left">
-                <div class="font-extrabold text-lg tracking-tight">KAYUHAN STREET COFFEE</div>
-                <p class="text-brand-100/70 text-xs mt-1">&copy; 2026 Kayuhan Street Coffee. Seluruh hak cipta dilindungi.</p>
+            <div class="flex items-center gap-3 text-center md:text-left">
+                <img src="{{ asset('images/foto_menu/kayuhan.png') }}" alt="Logo Kayuhan" class="w-9 h-9 rounded-full object-cover border border-white/20 hidden sm:block">
+                <div>
+                    <div class="font-extrabold text-lg tracking-tight">KAYUHAN STREET COFFEE</div>
+                    <p class="text-brand-100/70 text-xs mt-0.5">&copy; 2026 Kayuhan Street Coffee. Seluruh hak cipta dilindungi.</p>
+                </div>
             </div>
-            <div class="flex space-x-6 text-sm text-brand-100/80">
+            <div class="flex flex-wrap justify-center gap-6 text-sm text-brand-100/80">
                 <a href="#menu" class="hover:text-white transition">Menu</a>
+                <a href="#package" class="hover:text-white transition">Package</a>
                 <a href="#team" class="hover:text-white transition">Our Team</a>
                 <a href="#location" class="hover:text-white transition">Location</a>
-                <a href="#package" class="hover:text-white transition">Package</a>
+                <a href="{{ $waGeneralUrl }}" target="_blank" rel="noopener noreferrer" class="hover:text-amber-300 transition">WhatsApp</a>
             </div>
         </div>
     </footer>
 
-    <!-- Script Interaktif: Mobile Menu & Filter Kategori -->
     <script>
-        // Toggle Mobile Menu
+        // Toggle Menu Mobile
         const mobileBtn = document.getElementById('mobile-menu-btn');
         const mobileMenu = document.getElementById('mobile-menu');
         if (mobileBtn && mobileMenu) {
-            mobileBtn.addEventListener('click', () => {
-                mobileMenu.classList.toggle('hidden');
-            });
+            mobileBtn.addEventListener('click', () => mobileMenu.classList.toggle('hidden'));
         }
 
-        // Filter Kategori Produk
+        // Filter Kategori Menu Interaktif
         const filterButtons = document.querySelectorAll('.filter-btn');
         const menuCards = document.querySelectorAll('.menu-card');
 
